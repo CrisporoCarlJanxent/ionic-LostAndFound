@@ -20,12 +20,20 @@ import "@ionic/vue/css/text-transformation.css";
 import "@ionic/vue/css/flex-utils.css";
 import "@ionic/vue/css/display.css";
 
-/**
 /* Theme variables */
 import "./theme/variables.css";
 
 const app = createApp(App).use(IonicVue).use(router);
 
-router.isReady().then(() => {
-  app.mount("#app");
-});
+router
+  .isReady()
+  .then(() => app.mount("#app"))
+  .catch((error) => {
+    console.error("Unable to start Lost and Found:", error);
+    document.querySelector("#app")!.innerHTML = `
+    <main style="padding: 32px; font-family: sans-serif; color: #202b2b">
+      <h1>Lost &amp; Found could not start</h1>
+      <p>Close and reopen the app. If the problem continues, check the app build configuration.</p>
+    </main>
+  `;
+  });
