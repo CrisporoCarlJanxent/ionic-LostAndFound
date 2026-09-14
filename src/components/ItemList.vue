@@ -7,12 +7,24 @@
           :class="entry.type === 'Found' ? 'is-found' : 'is-lost'"
           slot="start"
         >
-          {{ entry.type === "Found" ? "+" : "?" }}
+          <ion-icon
+            :icon="
+              entry.type === 'Found' ? checkmarkCircleOutline : searchOutline
+            "
+          />
         </div>
+        <img
+          v-if="entry.imageUrl"
+          class="item-image"
+          :src="entry.imageUrl"
+          alt=""
+          slot="end"
+        />
         <ion-label>
           <div class="item-heading">
             <h2>{{ entry.itemName }}</h2>
             <ion-badge
+              v-if="entry.type === 'Found' || entry.status === 'Found'"
               :color="entry.status === 'Claimed' ? 'success' : 'warning'"
               >{{ entry.status }}</ion-badge
             >
@@ -30,13 +42,28 @@
 
       <ion-item-options side="end">
         <ion-item-option
-          v-if="entry.status === 'Unclaimed'"
+          v-if="entry.type === 'Lost' && entry.status !== 'Found'"
+          color="success"
+          @click="$emit('mark-found', entry.id)"
+          >Found</ion-item-option
+        >
+        <ion-item-option
+          v-else-if="entry.type === 'Found' || entry.status === 'Found'"
           color="success"
           @click="$emit('claim', entry.id)"
+          >Claimed</ion-item-option
         >
-          Claim
-        </ion-item-option>
-        <ion-item-option color="danger" @click="$emit('delete', entry.id)">
+        <ion-item-option
+          v-if="entry.type === 'Found' || entry.status === 'Found'"
+          color="warning"
+          @click="$emit('unclaim', entry.id)"
+          >Unclaimed</ion-item-option
+        >
+        <ion-item-option
+          v-if="entry.ownerId === currentUserId"
+          color="danger"
+          @click="$emit('delete', entry.id)"
+        >
           Delete
         </ion-item-option>
       </ion-item-options>
@@ -46,7 +73,7 @@
   <ion-text class="empty-state" color="medium" v-if="items.length === 0">
     <div class="empty-icon">+</div>
     <h3>No reports yet</h3>
-    <p>Be the first to report a lost or found item.</p>
+    <p>{{ emptyMessage }}</p>
   </ion-text>
 </template>
 
@@ -60,10 +87,19 @@ import {
   IonItemOptions,
   IonItemOption,
   IonText,
+  IonIcon,
 } from "@ionic/vue";
+import { checkmarkCircleOutline, searchOutline } from "ionicons/icons";
 
-defineProps({ items: { type: Array, required: true } });
-defineEmits(["select", "claim", "delete"]);
+defineProps({
+  items: { type: Array, required: true },
+  currentUserId: { type: String, default: "" },
+  emptyMessage: {
+    type: String,
+    default: "Be the first to report a lost or found item.",
+  },
+});
+defineEmits(["select", "mark-found", "claim", "unclaim", "delete"]);
 </script>
 
 <style scoped>
@@ -96,6 +132,16 @@ defineEmits(["select", "claim", "delete"]);
   border-radius: 14px;
   font-size: 23px;
   font-weight: 500;
+}
+.type-marker ion-icon {
+  font-size: 25px;
+}
+.item-image {
+  width: 52px;
+  height: 52px;
+  margin-left: 10px;
+  border-radius: 12px;
+  object-fit: cover;
 }
 .type-marker.is-lost {
   color: var(--app-coral);

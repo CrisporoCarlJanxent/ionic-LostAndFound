@@ -36,6 +36,32 @@
         <ion-input v-model="form.location"></ion-input>
       </ion-item>
 
+      <div class="image-field">
+        <input
+          ref="imageInput"
+          class="image-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          @change="selectImage"
+        />
+        <ion-button
+          type="button"
+          fill="outline"
+          class="image-button"
+          @click="openImagePicker"
+        >
+          Add a photo
+        </ion-button>
+        <img
+          v-if="imagePreview"
+          class="image-preview"
+          :src="imagePreview"
+          alt="Selected item preview"
+        />
+        <p class="image-help">A clear photo helps people recognize the item.</p>
+      </div>
+
       <div class="date-time-grid">
         <ion-item>
           <ion-label>Date</ion-label>
@@ -82,6 +108,10 @@ import { useItems } from "@/composables/useItems";
 const emit = defineEmits(["close", "added"]);
 const { addItem } = useItems();
 const errorMessage = ref("");
+const imageInput = ref(null);
+const imageFile = ref(null);
+const imagePreview = ref("");
+const imageDataUrl = ref("");
 
 const form = reactive({
   itemName: "",
@@ -97,14 +127,74 @@ async function submit() {
   errorMessage.value = "";
 
   try {
-    await addItem({ ...form });
+    if (imageFile.value) {
+      imageDataUrl.value = await compressImage(imageFile.value);
+    }
+
+    await addItem({ ...form }, imageDataUrl.value);
     emit("added");
     emit("close");
   } catch (error) {
     console.error("Unable to save item to Firebase:", error);
     errorMessage.value =
-      "Unable to save this item. Check your Firebase connection and permissions.";
+      error.message === "compressed image is too large"
+        ? "This image is still too large after compression. Choose a smaller photo."
+        : error.message === "auth-required"
+          ? "Please sign in before submitting a report."
+          : "Unable to save this item. Check your Firebase connection and permissions.";
   }
+}
+
+function openImagePicker() {
+  imageInput.value?.click();
+}
+
+function selectImage(event) {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+    errorMessage.value = "Choose an image smaller than 5 MB.";
+    event.target.value = "";
+    return;
+  }
+
+  imageFile.value = file;
+  imagePreview.value = URL.createObjectURL(file);
+  imageDataUrl.value = "";
+  errorMessage.value = "";
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      image.onload = () => {
+        const scale = Math.min(1, 1024 / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        canvas
+          .getContext("2d")
+          .drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+        if (dataUrl.length > 1024 * 1024) {
+          reject(new Error("compressed image is too large"));
+          return;
+        }
+
+        resolve(dataUrl);
+      };
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 </script>
 
@@ -177,6 +267,41 @@ form ion-select {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0;
+}
+.image-field {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 4px 0 8px;
+  padding: 14px;
+  border: 1px dashed var(--app-line);
+  border-radius: 14px;
+  background: #f7f4ef;
+}
+.image-input {
+  display: none;
+}
+.image-button {
+  --border-color: var(--app-coral);
+  --color: var(--app-coral);
+  --border-radius: 12px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: none;
+}
+.image-preview {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.image-help {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 .date-time-grid ion-datetime {
   width: 100%;

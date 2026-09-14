@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import {
   ref as databaseRef,
   push,
@@ -31,10 +31,18 @@ export function useItems() {
   }
 
   // Create
-  async function addItem(item) {
+  async function addItem(item, imageDataUrl = "") {
+    if (!auth.currentUser) {
+      throw new Error("auth-required");
+    }
+
     const newItemRef = push(itemsRef);
+
     await set(newItemRef, {
       ...item,
+      imageUrl: imageDataUrl,
+      ownerId: auth.currentUser.uid,
+      ownerEmail: auth.currentUser.email || "",
       createdAt: serverTimestamp(),
     });
     return newItemRef.key;
@@ -51,8 +59,35 @@ export function useItems() {
   }
 
   // Convenience: quick status update
+  async function markAsFound(id) {
+    return update(databaseRef(db, `items/${id}`), {
+      type: "Found",
+      status: "Unclaimed",
+    });
+  }
+
   async function markAsClaimed(id) {
-    return update(databaseRef(db, `items/${id}`), { status: "Claimed" });
+    const item = items.value.find((entry) => entry.id === id);
+    if (item?.type !== "Found" && item?.status !== "Found") {
+      throw new Error("only-found-items-can-be-claimed");
+    }
+
+    return update(databaseRef(db, `items/${id}`), {
+      type: "Found",
+      status: "Claimed",
+    });
+  }
+
+  async function markAsUnclaimed(id) {
+    const item = items.value.find((entry) => entry.id === id);
+    if (item?.type !== "Found" && item?.status !== "Found") {
+      throw new Error("only-found-items-can-be-unclaimed");
+    }
+
+    return update(databaseRef(db, `items/${id}`), {
+      type: "Found",
+      status: "Unclaimed",
+    });
   }
 
   return {
@@ -61,6 +96,8 @@ export function useItems() {
     addItem,
     updateItem,
     deleteItem,
+    markAsFound,
     markAsClaimed,
+    markAsUnclaimed,
   };
 }

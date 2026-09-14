@@ -11,9 +11,19 @@
         </div>
         <ion-buttons slot="end">
           <ion-button
+            class="auth-button"
+            :aria-label="currentUser ? 'Sign out' : 'Sign in'"
+            :title="currentUser ? 'Sign out' : 'Sign in'"
+            @click="handleAuthButton"
+          >
+            <ion-icon
+              :icon="currentUser ? logOutOutline : personCircleOutline"
+            ></ion-icon>
+          </ion-button>
+          <ion-button
             class="add-button"
             aria-label="Report an item"
-            @click="showAddModal = true"
+            @click="openAdd"
           >
             <ion-icon :icon="addOutline"></ion-icon>
           </ion-button>
@@ -48,11 +58,32 @@
         <span class="swipe-hint">Swipe for actions</span>
       </div>
 
+      <ion-searchbar
+        v-model="searchQuery"
+        class="report-search"
+        placeholder="Search reports"
+        :debounce="250"
+        show-clear-button="focus"
+      />
+
+      <ion-segment v-model="activeFilter" class="filter-segment" scrollable>
+        <ion-segment-button value="All">All</ion-segment-button>
+        <ion-segment-button value="Lost">Lost</ion-segment-button>
+        <ion-segment-button value="Found">Found</ion-segment-button>
+        <ion-segment-button value="Unclaimed">Unclaimed</ion-segment-button>
+        <ion-segment-button value="Claimed">Claimed</ion-segment-button>
+        <ion-segment-button value="Mine" @click="selectMyReports">My Reports</ion-segment-button>
+      </ion-segment>
+
       <ItemList
-        :items="items"
-        @select="openEdit"
+        :items="filteredItems"
+        :empty-message="emptyMessage"
+        :current-user-id="currentUser?.uid"
+        @select="openDetails"
+        @mark-found="handleMarkFound"
         @claim="handleClaim"
-        @delete="handleDelete"
+        @unclaim="handleUnclaim"
+        @delete="requestDelete"
       />
     </ion-content>
 
@@ -67,11 +98,36 @@
         @close="showEditModal = false"
       />
     </ion-modal>
+
+    <ion-modal
+      :is-open="showDetailsModal"
+      @didDismiss="showDetailsModal = false"
+    >
+      <ReportDetails
+        v-if="selectedItem"
+        :item="selectedItem"
+        :can-edit="selectedItem.ownerId === currentUser?.uid"
+        @close="showDetailsModal = false"
+        @edit="openEditFromDetails"
+      />
+    </ion-modal>
+
+    <ion-alert
+      :is-open="showDeleteAlert"
+      header="Delete report?"
+      message="This report will be permanently removed."
+      :buttons="deleteAlertButtons"
+      @didDismiss="closeDeleteAlert"
+    />
+
+    <ion-modal :is-open="showAuthModal" @didDismiss="showAuthModal = false">
+      <AuthModal @close="showAuthModal = false" />
+    </ion-modal>
   </ion-page>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted } from "vue";
 import {
   IonPage,
   IonHeader,
@@ -83,44 +139,198 @@ import {
   IonContent,
   IonModal,
   IonText,
+  IonSegment,
+  IonSegmentButton,
+  IonAlert,
+  IonSearchbar,
 } from "@ionic/vue";
-import { addOutline } from "ionicons/icons";
+import { addOutline, logOutOutline, personCircleOutline } from "ionicons/icons";
+import { auth } from "@/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useItems } from "@/composables/useItems";
 
 import ItemList from "@/components/ItemList.vue";
 import AddItemForm from "@/components/AddItemForm.vue";
 import EditItemModal from "@/components/EditItemModal.vue";
+import ReportDetails from "@/components/ReportDetails.vue";
+import AuthModal from "@/components/AuthModal.vue";
 
-const { items, subscribeToItems, markAsClaimed, deleteItem } = useItems();
+const {
+  items,
+  subscribeToItems,
+  markAsFound,
+  markAsClaimed,
+  markAsUnclaimed,
+  deleteItem,
+} = useItems();
 
 const showAddModal = ref(false);
 const showEditModal = ref(false);
+const showDetailsModal = ref(false);
 const selectedItem = ref(null);
 const errorMessage = ref("");
+const activeFilter = ref("All");
+const searchQuery = ref("");
+const showDeleteAlert = ref(false);
+const pendingDeleteId = ref(null);
+const showAuthModal = ref(false);
+const currentUser = ref(null);
+
+const filteredItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+
+  return items.value.filter((item) => {
+    const matchesFilter =
+      activeFilter.value === "All" ||
+      (activeFilter.value === "Mine" && item.ownerId === currentUser.value?.uid) ||
+      (activeFilter.value === "Lost" &&
+        item.type === "Lost" &&
+        item.status !== "Found") ||
+      (activeFilter.value === "Found" &&
+        (item.type === "Found" || item.status === "Found")) ||
+      (activeFilter.value === "Claimed" && item.status === "Claimed") ||
+      (activeFilter.value === "Unclaimed" && item.status === "Unclaimed");
+    const searchableText = [
+      item.itemName,
+      item.description,
+      item.location,
+      item.type,
+      item.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return matchesFilter && (!query || searchableText.includes(query));
+  });
+});
+
+const emptyMessage = computed(() =>
+  searchQuery.value.trim()
+    ? `No reports match “${searchQuery.value.trim()}”.`
+    : activeFilter.value === "Mine"
+      ? "You have not created any reports yet."
+    : activeFilter.value === "All"
+      ? "Be the first to report a lost or found item."
+      : `No ${activeFilter.value.toLowerCase()} reports yet.`,
+);
+
+const deleteAlertButtons = [
+  { text: "Cancel", role: "cancel" },
+  {
+    text: "Delete",
+    role: "destructive",
+    handler: () => confirmDelete(),
+  },
+];
 
 let unsubscribe;
+let unsubscribeAuth;
 onMounted(() => {
   unsubscribe = subscribeToItems((error) => {
     console.error("Unable to read items from Firebase:", error);
     errorMessage.value =
       "Unable to load items. Check your Firebase connection and permissions.";
   });
+  unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    currentUser.value = user;
+  });
 });
 onUnmounted(() => {
   if (unsubscribe) unsubscribe();
+  if (unsubscribeAuth) unsubscribeAuth();
 });
 
-function openEdit(item) {
+function openAdd() {
+  if (currentUser.value) {
+    showAddModal.value = true;
+  } else {
+    showAuthModal.value = true;
+  }
+}
+
+async function handleAuthButton() {
+  if (currentUser.value) {
+    await signOut(auth);
+    activeFilter.value = "All";
+  } else {
+    showAuthModal.value = true;
+  }
+}
+
+function selectMyReports() {
+  if (!currentUser.value) {
+    activeFilter.value = "All";
+    showAuthModal.value = true;
+  }
+}
+
+function openDetails(item) {
   selectedItem.value = item;
+  showDetailsModal.value = true;
+}
+
+function openEditFromDetails() {
+  showDetailsModal.value = false;
   showEditModal.value = true;
 }
 
 async function handleClaim(id) {
+  if (!currentUser.value) {
+    showAuthModal.value = true;
+    return;
+  }
+
+  const item = items.value.find((entry) => entry.id === id);
+  if (item?.type !== "Found" && item?.status !== "Found") {
+    errorMessage.value = "Only found items can be claimed.";
+    return;
+  }
+
   await runCrudAction(() => markAsClaimed(id), "claim this item");
 }
 
-async function handleDelete(id) {
-  await runCrudAction(() => deleteItem(id), "delete this item");
+async function handleMarkFound(id) {
+  if (!currentUser.value) {
+    showAuthModal.value = true;
+    return;
+  }
+
+  await runCrudAction(() => markAsFound(id), "mark this item as found");
+}
+
+async function handleUnclaim(id) {
+  if (!currentUser.value) {
+    showAuthModal.value = true;
+    return;
+  }
+
+  const item = items.value.find((entry) => entry.id === id);
+  if (item?.type !== "Found" && item?.status !== "Found") {
+    errorMessage.value = "Only found items can be unclaimed.";
+    return;
+  }
+
+  await runCrudAction(() => markAsUnclaimed(id), "mark this item as unclaimed");
+}
+
+function requestDelete(id) {
+  pendingDeleteId.value = id;
+  showDeleteAlert.value = true;
+}
+
+function closeDeleteAlert() {
+  showDeleteAlert.value = false;
+  pendingDeleteId.value = null;
+}
+
+async function confirmDelete() {
+  const id = pendingDeleteId.value;
+  closeDeleteAlert();
+
+  if (id) {
+    await runCrudAction(() => deleteItem(id), "delete this item");
+  }
 }
 
 async function runCrudAction(action, description) {
@@ -190,6 +400,15 @@ async function runCrudAction(action, description) {
 }
 .add-button ion-icon {
   font-size: 24px;
+}
+.auth-button {
+  --color: var(--app-ink);
+  width: 42px;
+  height: 42px;
+  margin: 0 4px 0 0;
+}
+.auth-button ion-icon {
+  font-size: 25px;
 }
 .home-content {
   --padding-bottom: 32px;
@@ -285,6 +504,35 @@ async function runCrudAction(action, description) {
   color: var(--app-ink);
   font-size: 21px;
   font-weight: 800;
+}
+.report-search {
+  width: min(calc(100% - 32px), 760px);
+  margin: 0 auto 10px;
+  padding: 0;
+  --background: var(--app-paper);
+  --border-radius: 14px;
+  --color: var(--app-ink);
+  --icon-color: var(--app-muted);
+  --placeholder-color: var(--app-muted);
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+}
+.filter-segment {
+  width: min(calc(100% - 32px), 760px);
+  margin: 0 auto 14px;
+  --background: var(--app-paper);
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+}
+.filter-segment ion-segment-button {
+  min-width: 82px;
+  min-height: 42px;
+  --color: var(--app-muted);
+  --color-checked: var(--app-ink);
+  --indicator-color: var(--app-yellow);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: none;
 }
 .swipe-hint {
   color: var(--app-muted);

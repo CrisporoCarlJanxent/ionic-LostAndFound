@@ -48,11 +48,14 @@
         </ion-item>
       </div>
 
-      <ion-item>
+      <ion-item v-if="form.type === 'Found' || form.status === 'Found'">
         <ion-label>Status</ion-label>
         <ion-select v-model="form.status">
           <ion-select-option value="Unclaimed">Unclaimed</ion-select-option>
           <ion-select-option value="Claimed">Claimed</ion-select-option>
+          <ion-select-option v-if="form.type === 'Lost'" value="Found"
+            >Found</ion-select-option
+          >
         </ion-select>
       </ion-item>
 
