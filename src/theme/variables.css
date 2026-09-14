@@ -1,52 +1,52 @@
 :root {
-	color-scheme: light;
-	--ion-font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-	--ion-color-primary: #e25d4f;
-	--ion-color-primary-rgb: 226, 93, 79;
-	--ion-color-primary-contrast: #ffffff;
-	--ion-color-primary-shade: #c75246;
-	--ion-color-primary-tint: #e56d60;
-	--ion-color-success: #338a6e;
-	--ion-color-warning: #d89b32;
-	--ion-color-danger: #c44e4e;
-	--ion-background-color: #f5f1ea;
-	--ion-text-color: #202b2b;
-	--app-ink: #202b2b;
-	--app-muted: #53615f;
-	--app-paper: #fffdf9;
-	--app-line: #d8cec2;
-	--app-coral: #e25d4f;
-	--app-mint: #dcefe7;
-	--app-yellow: #f3d58f;
+  color-scheme: light;
+  --ion-font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  --ion-color-primary: #e25d4f;
+  --ion-color-primary-rgb: 226, 93, 79;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-shade: #c75246;
+  --ion-color-primary-tint: #e56d60;
+  --ion-color-success: #338a6e;
+  --ion-color-warning: #d89b32;
+  --ion-color-danger: #c44e4e;
+  --ion-background-color: #f5f1ea;
+  --ion-text-color: #202b2b;
+  --app-ink: #202b2b;
+  --app-muted: #53615f;
+  --app-paper: #fffdf9;
+  --app-line: #d8cec2;
+  --app-coral: #e25d4f;
+  --app-mint: #dcefe7;
+  --app-yellow: #f3d58f;
 }
 
 ion-content {
-	--background: var(--ion-background-color);
+  --background: var(--ion-background-color);
 }
 
 ion-datetime {
-	--background: #f7f4ef;
-	--ion-text-color: var(--app-ink);
-	--ion-color-step-50: #f7f4ef;
-	--ion-color-step-100: #eee9e1;
-	--ion-color-step-150: #e4ddd4;
-	--ion-color-step-600: #53615f;
-	--ion-color-step-700: #394744;
-	--ion-color-step-800: #202b2b;
-	--ion-color-step-900: #16201f;
+  --background: #f7f4ef;
+  --ion-text-color: var(--app-ink);
+  --ion-color-step-50: #f7f4ef;
+  --ion-color-step-100: #eee9e1;
+  --ion-color-step-150: #e4ddd4;
+  --ion-color-step-600: #53615f;
+  --ion-color-step-700: #394744;
+  --ion-color-step-800: #202b2b;
+  --ion-color-step-900: #16201f;
 }
 
 ion-modal {
-	--border-radius: 24px 24px 0 0;
-	--height: min(92vh, 720px);
-	align-items: end;
+  --border-radius: 24px 24px 0 0;
+  --height: min(92vh, 720px);
+  align-items: end;
 }
 
 @media (min-width: 600px) {
-	ion-modal {
-		--width: min(560px, 94vw);
-		--height: min(760px, 90vh);
-		--border-radius: 24px;
-		align-items: center;
-	}
+  ion-modal {
+    --width: min(560px, 94vw);
+    --height: min(760px, 90vh);
+    --border-radius: 24px;
+    align-items: center;
+  }
 }
