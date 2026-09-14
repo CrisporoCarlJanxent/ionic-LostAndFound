@@ -1,5 +1,5 @@
 <template>
-  <ion-header>
+  <ion-header class="form-header ion-no-border">
     <ion-toolbar>
       <ion-title>Report an Item</ion-title>
       <ion-buttons slot="end">
@@ -8,8 +8,9 @@
     </ion-toolbar>
   </ion-header>
 
-  <ion-content class="ion-padding">
+  <ion-content class="form-content ion-padding">
     <form @submit.prevent="submit">
+      <p class="form-intro">Tell us a few details so the right person can find it.</p>
       <ion-item>
         <ion-label position="floating">Item Name</ion-label>
         <ion-input v-model="form.itemName" required></ion-input>
@@ -33,15 +34,17 @@
         <ion-input v-model="form.location"></ion-input>
       </ion-item>
 
-      <ion-item>
-        <ion-label>Date</ion-label>
-        <ion-datetime v-model="form.date" presentation="date"></ion-datetime>
-      </ion-item>
+      <div class="date-time-grid">
+        <ion-item>
+          <ion-label>Date</ion-label>
+          <ion-datetime v-model="form.date" presentation="date"></ion-datetime>
+        </ion-item>
 
-      <ion-item>
-        <ion-label>Time</ion-label>
-        <ion-datetime v-model="form.time" presentation="time"></ion-datetime>
-      </ion-item>
+        <ion-item>
+          <ion-label>Time</ion-label>
+          <ion-datetime v-model="form.time" presentation="time"></ion-datetime>
+        </ion-item>
+      </div>
 
       <ion-button expand="block" type="submit" class="ion-margin-top">
         Submit
@@ -102,3 +105,26 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.form-header { background: var(--app-paper); }
+.form-header ion-toolbar { --background: var(--app-paper); --border-width: 0; --padding-start: 20px; --padding-end: 12px; --min-height: 68px; }
+.form-header ion-title { padding: 0; color: var(--app-ink); font-size: 21px; font-weight: 800; text-align: left; }
+.form-header ion-button { --color: var(--app-ink); font-size: 13px; font-weight: 700; text-transform: none; }
+.form-content { --background: var(--app-paper); }
+form { max-width: 520px; margin: 0 auto; }
+.form-intro { margin: 0 0 18px; color: var(--app-muted); font-size: 13px; line-height: 1.45; }
+form > ion-item, .date-time-grid ion-item {
+  --background: #f7f4ef; --border-color: transparent; --border-radius: 14px;
+  --highlight-color-focused: var(--app-coral); --min-height: 56px;
+  margin-bottom: 10px; border: 1px solid var(--app-line); border-radius: 14px; overflow: hidden;
+}
+form > ion-item:focus-within, .date-time-grid ion-item:focus-within { border-color: var(--app-coral); }
+form ion-label { color: var(--app-muted); font-size: 12px; font-weight: 600; }
+form ion-input, form ion-textarea, form ion-select { --color: var(--app-ink); --placeholder-color: #687571; --placeholder-opacity: 1; }
+.date-time-grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+.date-time-grid ion-datetime { width: 100%; --background: transparent; --background-rgb: 247, 244, 239; font-size: 13px; }
+form > ion-button { --border-radius: 14px; height: 52px; margin-top: 12px; font-size: 15px; font-weight: 800; text-transform: none; box-shadow: 0 8px 16px rgba(226, 93, 79, .2); }
+form > ion-text p { margin: 12px 2px 0; color: #a83232; font-size: 12px; line-height: 1.4; }
+@media (min-width: 420px) { .date-time-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
+</style>
