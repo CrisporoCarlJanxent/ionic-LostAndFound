@@ -1,0 +1,7 @@
+{
+  "name": "Lost_And_Found",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
